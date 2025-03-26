@@ -23,11 +23,49 @@ jobs:
       - name: Install Bandit
         run: pip install bandit
 
-      - name: Run Bandit Security Scan
-        run: bandit -r . -f json -o bandit_report.json || true
+      - name: Run Bandit Security Scan (XML Output)
+        run: bandit -r . --format xml -o bandit_report.xml || true
 
-      - name: Upload Bandit Report
+      - name: Convert XML to HTML
+        run: |
+          echo '<?xml version="1.0" encoding="UTF-8"?>
+          <xsl:stylesheet version="1.0"
+              xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+              <xsl:template match="/">
+                  <html>
+                      <head>
+                          <title>Bandit Security Report</title>
+                      </head>
+                      <body>
+                          <h2>Bandit Security Scan Report</h2>
+                          <table border="1">
+                              <tr>
+                                  <th>Filename</th>
+                                  <th>Issue</th>
+                                  <th>Severity</th>
+                                  <th>Line Number</th>
+                              </tr>
+                              <xsl:for-each select="//test">
+                                  <tr>
+                                      <td><xsl:value-of select="filename"/></td>
+                                      <td><xsl:value-of select="issue_text"/></td>
+                                      <td><xsl:value-of select="issue_severity"/></td>
+                                      <td><xsl:value-of select="line_number"/></td>
+                                  </tr>
+                              </xsl:for-each>
+                          </table>
+                      </body>
+                  </html>
+              </xsl:template>
+          </xsl:stylesheet>' > bandit_to_html.xsl
+
+          sudo apt-get update && sudo apt-get install -y xsltproc
+          xsltproc bandit_to_html.xsl bandit_report.xml > bandit_report.html
+
+      - name: Upload Bandit Reports (XML & HTML)
         uses: actions/upload-artifact@v4
         with:
-          name: Bandit Security Report
-          path: bandit_report.json
+          name: Bandit Security Reports
+          path: |
+            bandit_report.xml
+            bandit_report.html
